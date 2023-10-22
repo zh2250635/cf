@@ -12,4 +12,4 @@ ENV WRANGLER_SEND_METRICS=false
 COPY server.js .
 
 # 启动本地开发服务器
-CMD wrangler dev server.js --local 
+CMD wrangler dev server.js --local --var OPENAI_BASE_URL=${OPENAI_BASE_URL}  OPENAI_KEY=${OPENAI_KEY}
