@@ -1,5 +1,7 @@
 // The name of your Azure OpenAI Resource.
 // const resourceName=RESOURCE_NAME
+const openaiBaseUrl = OPENAI_BASE_URL || 'https://api.openai.com';
+const openaiKey = OPENAI_KEY || '';
 
 // The deployment name you chose when you deployed the model.
 const mapper = {
@@ -71,9 +73,27 @@ async function handleRequest(request) {
     body: typeof body === 'object' ? JSON.stringify(body) : '{}',
   };
 
-    let response = await Promise.race([
-      fetch(fetchAPI, payload)
-    ]);
+    let response = await fetch(fetchAPI, payload);
+
+    if (response.status === 400) {
+      let data = await response.json();
+      if (data?.error?.code === 'content_filter') {
+        let opAPI = openaiBaseUrl + '/v1/chat/completions';
+        payload.headers['Authorization'] = `Bearer ${openaiKey}`;
+        response = await fetch(opAPI, payload);
+        response = new Response(response.body, response);
+        response.headers.set("Access-Control-Allow-Origin", "*");
+    
+        if (body?.stream != true){
+          return response
+        } 
+    
+        let { readable, writable } = new TransformStream()
+        stream(response.body, writable, body?.model);
+        return new Response(readable, response);
+      }
+    }
+
     response = new Response(response.body, response);
     response.headers.set("Access-Control-Allow-Origin", "*");
 
