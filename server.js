@@ -2,6 +2,7 @@
 // const resourceName=RESOURCE_NAME
 const openaiBaseUrl = OPENAI_BASE_URL || 'https://api.openai.com';
 const openaiKey = OPENAI_KEY || '';
+const shouldUseOpenAI = SHOULD_USE_OPENAI || false;
 
 // The deployment name you chose when you deployed the model.
 const mapper = {
@@ -75,9 +76,10 @@ async function handleRequest(request) {
 
     let response = await fetch(fetchAPI, payload);
 
-    if (response.status === 400) {
+    if (response.status === 400 && shouldUseOpenAI) {
       let data = await response.json();
       if (data?.error?.code === 'content_filter') {
+        console.log('content_filter catched');
         let opAPI = openaiBaseUrl + '/v1/' + path;
         payload.headers['Authorization'] = `Bearer ${openaiKey}`;
         response = await fetch(opAPI, payload);
