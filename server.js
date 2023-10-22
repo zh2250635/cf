@@ -4,6 +4,8 @@ const openaiBaseUrl = OPENAI_BASE_URL || 'https://api.openai.com';
 const openaiKey = OPENAI_KEY || '';
 const shouldUseOpenAI = SHOULD_USE_OPENAI || false;
 
+console.log(`shouldUseOpenAI: ${shouldUseOpenAI}`);
+
 // The deployment name you chose when you deployed the model.
 const mapper = {
     'gpt-3.5-turbo': "gpt-35-turbo",
