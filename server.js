@@ -7,6 +7,7 @@ const mapper = {
     'gpt-3.5-turbo-16k': "gpt-35-turbo-16k",
     'gpt-4': "gpt-4",
     'gpt-4-32k': "gpt-4-32k",
+    "text-embedding-ada-002": "text-embedding-ada-002",
 };
 
 const apiVersion="2023-07-01-preview"
@@ -33,7 +34,9 @@ async function handleRequest(request) {
     path = "completions";
   } else if (url.pathname === '/v1/models') {
     return handleModels(request);
-  } else {
+  } else if (url.pathname === '/v1/embeddings' || url.pathname === '/v1/engines/text-embedding-ada-002/embeddings') {
+    path = "embeddings";
+  }else {
     return new Response('404 Not Found', { status: 404 });
   }
 
@@ -68,19 +71,8 @@ async function handleRequest(request) {
     body: typeof body === 'object' ? JSON.stringify(body) : '{}',
   };
 
-  // 超时处理
-  // const timeout = 60000; // 60秒
-  // const timeoutPromise = new Promise((_, reject) => {
-  //   setTimeout(() => {
-  //     reject(new Error(`在resourceName=${resourceName}，deployName=${deployName}，modelName=${modelName}，path=${path}，超时${timeout}ms`));
-  //   }, timeout);
-  // });
-
-  // 代理请求
-  // try {
     let response = await Promise.race([
-      fetch(fetchAPI, payload),
-      timeoutPromise
+      fetch(fetchAPI, payload)
     ]);
     response = new Response(response.body, response);
     response.headers.set("Access-Control-Allow-Origin", "*");
@@ -92,13 +84,6 @@ async function handleRequest(request) {
     let { readable, writable } = new TransformStream()
     stream(response.body, writable, body?.model);
     return new Response(readable, response);
-  // }catch (e) {
-  //   console.log(e);
-  //   return new Response('Internal Server Error', {
-  //     status: 500
-  //   });
-  // }
-
 }
 
 function sleep(ms) {
