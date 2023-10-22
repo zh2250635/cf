@@ -2,9 +2,7 @@
 // const resourceName=RESOURCE_NAME
 const openaiBaseUrl = OPENAI_BASE_URL || 'https://api.openai.com';
 const openaiKey = OPENAI_KEY || '';
-const shouldUseOpenAI = SHOULD_USE_OPENAI || false;
-
-console.log(`shouldUseOpenAI: ${shouldUseOpenAI}`);
+const shouldUseOpenAI = Boolean(shouldUseOpenAI) || false;
 
 // The deployment name you chose when you deployed the model.
 const mapper = {
@@ -78,26 +76,27 @@ async function handleRequest(request) {
 
     let response = await fetch(fetchAPI, payload);
 
-    if (response.status === 400 && shouldUseOpenAI) {
-      let data = await response.json();
-      if (data?.error?.code === 'content_filter') {
-        console.log('content_filter catched');
-        let opAPI = openaiBaseUrl + '/v1/' + path;
-        payload.headers['Authorization'] = `Bearer ${openaiKey}`;
-        response = await fetch(opAPI, payload);
-        response = new Response(response.body, response);
-        response.headers.set("Access-Control-Allow-Origin", "*");
-    
-        if (body?.stream != true){
-          return response
-        } 
-    
-        let { readable, writable } = new TransformStream()
-        stream(response.body, writable, body?.model);
-        return new Response(readable, response);
+    if(shouldUseOpenAI) {
+      if (response.status === 400 ) {
+        let data = await response.json();
+        if (data?.error?.code === 'content_filter') {
+          console.log('content_filter catched');
+          let opAPI = openaiBaseUrl + '/v1/' + path;
+          payload.headers['Authorization'] = `Bearer ${openaiKey}`;
+          response = await fetch(opAPI, payload);
+          response = new Response(response.body, response);
+          response.headers.set("Access-Control-Allow-Origin", "*");
+      
+          if (body?.stream != true){
+            return response
+          } 
+      
+          let { readable, writable } = new TransformStream()
+          stream(response.body, writable, body?.model);
+          return new Response(readable, response);
+        }
       }
     }
-
     response = new Response(response.body, response);
     response.headers.set("Access-Control-Allow-Origin", "*");
 
