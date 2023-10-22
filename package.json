@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fecth": "^0.0.1-security",
+    "node-fetch": "^3.3.2"
+  },
+  "type": "module"
+}
