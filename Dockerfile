@@ -13,4 +13,4 @@ ENV OPENAI_KEY=sk-xxx
 COPY server.js .
 
 # 启动本地开发服务器
-CMD wrangler dev server.js --local --var OPENAI_BASE_URL=$OPENAI_BASE_URL  OPENAI_KEY=$OPENAI_KEY
+CMD wrangler dev server.js --local --var OPENAI_BASE_URL:$OPENAI_BASE_URL OPENAI_KEY:$OPENAI_KEY
