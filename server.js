@@ -78,7 +78,7 @@ async function handleRequest(request) {
     if (response.status === 400) {
       let data = await response.json();
       if (data?.error?.code === 'content_filter') {
-        let opAPI = openaiBaseUrl + '/' + path;
+        let opAPI = openaiBaseUrl + '/v1/' + path;
         payload.headers['Authorization'] = `Bearer ${openaiKey}`;
         response = await fetch(opAPI, payload);
         response = new Response(response.body, response);
