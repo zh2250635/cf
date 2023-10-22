@@ -6,7 +6,8 @@ WORKDIR /app
 RUN npm install -g wrangler@2.15.0
 
 ENV WRANGLER_SEND_METRICS=false
-
+ENV OPENAI_BASE_URL=https://api.openai.com/v1
+ENV OPENAI_KEY=sk-xxx
 
 # 复制 Workers 脚本到镜像
 COPY server.js .
