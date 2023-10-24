@@ -2,7 +2,8 @@
 // const resourceName=RESOURCE_NAME
 const openaiBaseUrl = OPENAI_BASE_URL || 'https://api.openai.com';
 const openaiKey = OPENAI_KEY || '';
-const shouldUseOpenAI = Boolean(shouldUseOpenAI) || false;
+const shouldUseOpenAI = Boolean(SHOULD_USE_OPENAI) || false;
+const shouldMakeLine = Boolean(SHOULD_MAKE_KINE) || false;
 
 // The deployment name you chose when you deployed the model.
 const mapper = {
@@ -113,6 +114,49 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function make_line(line) {
+  if (line === 'data: [DONE]') {
+      return 'data: [DONE]\n\n';
+  } else if (line.startsWith('data: ')) {
+      const jsonPart = line.slice(6);
+      let jsonData;
+      try {
+          jsonData = JSON.parse(jsonPart);
+      } catch (error) {
+          console.error('Error parsing JSON:', error);
+          return null;
+      }
+
+      // 确保jsonData["choices"]存在
+      if (!jsonData["choices"] || !Array.isArray(jsonData["choices"]) || jsonData["choices"].length === 0) {
+          return null;
+      }
+
+      try {
+          const returnChoices = jsonData["choices"];
+          if (returnChoices && returnChoices[0]) {
+              delete returnChoices[0]["content_filter_results"];
+              // if ('role' in returnChoices[0]['delta']) {
+              //     returnChoices[0]['delta']['content'] = '';
+              // }
+          }
+
+          const returnJson = JSON.stringify({
+              "id": jsonData["id"],
+              "object": jsonData["object"],
+              "created": jsonData["created"],
+              "model": jsonData["model"] ? jsonData["model"] : "gpt-4",
+              "choices": jsonData["choices"]
+          });
+          return 'data: ' + returnJson + '\n\n';
+      } catch (error) {
+          console.error('Error processing data:', error);
+          return null;
+      }
+  }
+  return null;
+}
+
 // support printer mode and add newline
 async function stream(readable, writable, model) {
   const reader = readable.getReader();
@@ -137,7 +181,16 @@ async function stream(readable, writable, model) {
 
     // Loop through all but the last line, which may be incomplete.
     for (let i = 0; i < lines.length - 1; i++) {
-      await writer.write(encoder.encode(lines[i] + delimiter));
+        if(shouldMakeLine) {
+
+          let processedLine = make_line(lines[i]);
+
+          if (processedLine) { // 如果make_line返回null，我们就不处理这一行
+              await writer.write(encoder.encode(processedLine));
+          }
+        }else {
+          await writer.write(encoder.encode(lines[i] + delimiter));
+        }
       if (model.startsWith('gpt-3.5')) {
         await sleep(20);
       }else if (model.startsWith('gpt-4')) {
@@ -148,7 +201,12 @@ async function stream(readable, writable, model) {
     buffer = lines[lines.length - 1];
   }
 
-  if (buffer) {
+  if (buffer && shouldMakeLine) {
+    let processedLine = make_line(buffer);
+    if (processedLine) {
+        await writer.write(encoder.encode(processedLine));
+    }
+  }else if (buffer) {
     await writer.write(encoder.encode(buffer));
   }
   await writer.write(encodedNewline)
