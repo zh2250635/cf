@@ -17,97 +17,112 @@ const mapper = {
 const apiVersion="2023-07-01-preview"
 
 addEventListener("fetch", (event) => {
-  event.respondWith(handleRequest(event.request));
+  event.respondWith(
+    handleRequest(event.request).catch((err) => {
+      console.error('全局捕获的错误：', err);
+      return new Response('Internal Server Error', { status: 500 });
+    })
+  );
 });
 
 async function handleRequest(request) {
-  const url = new URL(request.url);
+  try {
+    const url = new URL(request.url);
 
-  // 动态获取RESOURCE_NAME
-  const pathSegments = url.pathname.split("/");
-  const resourceName = pathSegments[1];
+    // 动态获取RESOURCE_NAME
+    const pathSegments = url.pathname.split("/");
+    const resourceName = pathSegments[1];
 
-  // 移除RESOURCE_NAME，得到新的pathname
-  const newPathname = '/' + pathSegments.slice(2).join('/');
-  url.pathname = newPathname;
+    // 移除RESOURCE_NAME，得到新的pathname
+    const newPathname = '/' + pathSegments.slice(2).join('/');
+    url.pathname = newPathname;
 
-  let path;
-  if (url.pathname === '/v1/chat/completions') {
-    path = "chat/completions";
-  } else if (url.pathname === '/v1/completions') {
-    path = "completions";
-  } else if (url.pathname === '/v1/models') {
-    return handleModels(request);
-  } else if (url.pathname === '/v1/embeddings' || url.pathname === '/v1/engines/text-embedding-ada-002/embeddings') {
-    path = "embeddings";
-  }else {
-    return new Response('404 Not Found', { status: 404 });
-  }
+    let path;
+    switch (url.pathname) {
+      case '/v1/chat/completions':
+        path = "chat/completions";
+        break;
+      case '/v1/completions':
+        path = "completions";
+        break;
+      case '/v1/models':
+        return handleModels(request);
+      case '/v1/embeddings':
+      case '/v1/engines/text-embedding-ada-002/embeddings':
+        path = "embeddings";
+        break;
+      default:
+        return new Response('404 Not Found', { status: 404 });
+    }
 
-  let body;
-  if (request.method === 'POST') {
-    body = await request.json();
-  }
+    let body;
+    if (request.method === 'POST') {
+      body = await request.json();
+    }
 
-  const modelName = body?.model;  
-  const deployName = mapper[modelName] || '' 
+    const modelName = body?.model;  
+    const deployName = mapper[modelName] || '' 
 
-  if (deployName === '') {
-    return new Response('Missing model mapper', {
+    if (deployName === '') {
+      return new Response('Missing model mapper', {
+          status: 403
+      });
+    }
+    const fetchAPI = `https://${resourceName}.openai.azure.com/openai/deployments/${deployName}/${path}?api-version=${apiVersion}`
+
+    const authKey = request.headers.get('Authorization');
+    if (!authKey) {
+      return new Response("Not allowed", {
         status: 403
-    });
-  }
-  const fetchAPI = `https://${resourceName}.openai.azure.com/openai/deployments/${deployName}/${path}?api-version=${apiVersion}`
+      });
+    }
 
-  const authKey = request.headers.get('Authorization');
-  if (!authKey) {
-    return new Response("Not allowed", {
-      status: 403
-    });
-  }
+    const payload = {
+      method: request.method,
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": authKey.replace('Bearer ', ''),
+      },
+      body: typeof body === 'object' ? JSON.stringify(body) : '{}',
+    };
 
-  const payload = {
-    method: request.method,
-    headers: {
-      "Content-Type": "application/json",
-      "api-key": authKey.replace('Bearer ', ''),
-    },
-    body: typeof body === 'object' ? JSON.stringify(body) : '{}',
-  };
+      let response = await fetch(fetchAPI, payload);
 
-    let response = await fetch(fetchAPI, payload);
-
-    if(shouldUseOpenAI) {
-      if (response.status === 400 ) {
-        let data = await response.json();
-        if (data?.error?.code === 'content_filter') {
-          console.log('content_filter catched');
-          let opAPI = openaiBaseUrl + '/v1/' + path;
-          payload.headers['Authorization'] = `Bearer ${openaiKey}`;
-          response = await fetch(opAPI, payload);
-          response = new Response(response.body, response);
-          response.headers.set("Access-Control-Allow-Origin", "*");
-      
-          if (body?.stream != true){
-            return response
-          } 
-      
-          let { readable, writable } = new TransformStream()
-          stream(response.body, writable, body?.model);
-          return new Response(readable, response);
+      if(shouldUseOpenAI) {
+        if (response.status === 400 ) {
+          let data = await response.json();
+          if (data?.error?.code === 'content_filter') {
+            console.log('content_filter catched');
+            let opAPI = openaiBaseUrl + '/v1/' + path;
+            payload.headers['Authorization'] = `Bearer ${openaiKey}`;
+            response = await fetch(opAPI, payload);
+            response = new Response(response.body, response);
+            response.headers.set("Access-Control-Allow-Origin", "*");
+        
+            if (body?.stream != true){
+              return response
+            } 
+        
+            let { readable, writable } = new TransformStream()
+            stream(response.body, writable, body?.model);
+            return new Response(readable, response);
+          }
         }
       }
-    }
-    response = new Response(response.body, response);
-    response.headers.set("Access-Control-Allow-Origin", "*");
+      response = new Response(response.body, response);
+      response.headers.set("Access-Control-Allow-Origin", "*");
 
-    if (body?.stream != true){
-      return response
-    } 
+      if (body?.stream != true){
+        return response
+      } 
 
-    let { readable, writable } = new TransformStream()
-    stream(response.body, writable, body?.model);
-    return new Response(readable, response);
+      let { readable, writable } = new TransformStream()
+      stream(response.body, writable, body?.model);
+      return new Response(readable, response);
+  }catch (error) {
+    console.error('发生错误：', error);
+    throw error; // 重新抛出错误，让全局捕获器捕获
+  }
 }
 
 function sleep(ms) {
@@ -159,58 +174,64 @@ function make_line(line) {
 
 // support printer mode and add newline
 async function stream(readable, writable, model) {
-  const reader = readable.getReader();
-  const writer = writable.getWriter();
+  try {
 
-  // const decoder = new TextDecoder();
-  const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
-// let decodedValue = decoder.decode(value);
-  const newline = "\n";
-  const delimiter = "\n\n"
-  const encodedNewline = encoder.encode(newline);
+    const reader = readable.getReader();
+    const writer = writable.getWriter();
 
-  let buffer = "";
-  while (true) {
-    let { value, done } = await reader.read();
-    if (done) {
-      break;
-    }
-    buffer += decoder.decode(value, { stream: true }); // stream: true is important here,fix the bug of incomplete line
-    let lines = buffer.split(delimiter);
+    // const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+  // let decodedValue = decoder.decode(value);
+    const newline = "\n";
+    const delimiter = "\n\n"
+    const encodedNewline = encoder.encode(newline);
 
-    // Loop through all but the last line, which may be incomplete.
-    for (let i = 0; i < lines.length - 1; i++) {
-        if(shouldMakeLine) {
-
-          let processedLine = make_line(lines[i]);
-
-          if (processedLine) { // 如果make_line返回null，我们就不处理这一行
-              await writer.write(encoder.encode(processedLine));
-          }
-        }else {
-          await writer.write(encoder.encode(lines[i] + delimiter));
-        }
-      if (model.startsWith('gpt-3.5')) {
-        await sleep(20);
-      }else if (model.startsWith('gpt-4')) {
-        await sleep(30);
+    let buffer = "";
+    while (true) {
+      let { value, done } = await reader.read();
+      if (done) {
+        break;
       }
+      buffer += decoder.decode(value, { stream: true }); // stream: true is important here,fix the bug of incomplete line
+      let lines = buffer.split(delimiter);
+
+      // Loop through all but the last line, which may be incomplete.
+      for (let i = 0; i < lines.length - 1; i++) {
+          if(shouldMakeLine) {
+
+            let processedLine = make_line(lines[i]);
+
+            if (processedLine) { // 如果make_line返回null，我们就不处理这一行
+                await writer.write(encoder.encode(processedLine));
+            }
+          }else {
+            await writer.write(encoder.encode(lines[i] + delimiter));
+          }
+        if (model.startsWith('gpt-3.5')) {
+          await sleep(20);
+        }else if (model.startsWith('gpt-4')) {
+          await sleep(30);
+        }
+      }
+
+      buffer = lines[lines.length - 1];
     }
 
-    buffer = lines[lines.length - 1];
-  }
-
-  if (buffer && shouldMakeLine) {
-    let processedLine = make_line(buffer);
-    if (processedLine) {
-        await writer.write(encoder.encode(processedLine));
+    if (buffer && shouldMakeLine) {
+      let processedLine = make_line(buffer);
+      if (processedLine) {
+          await writer.write(encoder.encode(processedLine));
+      }
+    }else if (buffer) {
+      await writer.write(encoder.encode(buffer));
     }
-  }else if (buffer) {
-    await writer.write(encoder.encode(buffer));
+    await writer.write(encodedNewline)
+    await writer.close();
+  }catch (error) {
+    console.error('发生错误：', error);
+    throw error; // 重新抛出错误，让全局捕获器捕获
   }
-  await writer.write(encodedNewline)
-  await writer.close();
 }
 
 async function handleModels(request) {
