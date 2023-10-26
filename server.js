@@ -19,7 +19,7 @@ const apiVersion="2023-07-01-preview"
 addEventListener("fetch", (event) => {
   event.respondWith(
     handleRequest(event.request).catch((err) => {
-      console.log('全局捕获的错误：', err, "\n------------------\n");
+      console.log('全局捕获的错误：', err, "\n-------------------\n");
       return new Response('Internal Server Error', { status: 500 });
     })
   );
