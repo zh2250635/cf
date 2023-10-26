@@ -3,7 +3,7 @@
 const openaiBaseUrl = OPENAI_BASE_URL || 'https://api.openai.com';
 const openaiKey = OPENAI_KEY || '';
 const shouldUseOpenAI = Boolean(SHOULD_USE_OPENAI) || false;
-const shouldMakeLine = Boolean(SHOULD_MAKE_KINE) || false;
+const shouldMakeLine = Boolean(SHOULD_MAKE_LINE) || false;
 
 // The deployment name you chose when you deployed the model.
 const mapper = {
@@ -174,8 +174,6 @@ function make_line(line) {
 
 // support printer mode and add newline
 async function stream(readable, writable, model) {
-  try {
-
     const reader = readable.getReader();
     const writer = writable.getWriter();
 
@@ -228,10 +226,6 @@ async function stream(readable, writable, model) {
     }
     await writer.write(encodedNewline)
     await writer.close();
-  }catch (error) {
-    console.error('发生错误：', error);
-    throw error; // 重新抛出错误，让全局捕获器捕获
-  }
 }
 
 async function handleModels(request) {
