@@ -19,7 +19,7 @@ const apiVersion="2023-07-01-preview"
 addEventListener("fetch", (event) => {
   event.respondWith(
     handleRequest(event.request).catch((err) => {
-      console.error('全局捕获的错误：', err, "\n------------------");
+      console.error('全局捕获的错误：', err, "\n------------------\n");
       return new Response('Internal Server Error', { status: 500 });
     })
   );
@@ -120,7 +120,6 @@ async function handleRequest(request) {
       stream(response.body, writable, body?.model);
       return new Response(readable, response);
   }catch (error) {
-    console.error('发生错误：', error);
     throw error; // 重新抛出错误，让全局捕获器捕获
   }
 }
@@ -174,6 +173,8 @@ function make_line(line) {
 
 // support printer mode and add newline
 async function stream(readable, writable, model) {
+  try {
+
     const reader = readable.getReader();
     const writer = writable.getWriter();
 
@@ -226,6 +227,9 @@ async function stream(readable, writable, model) {
     }
     await writer.write(encodedNewline)
     await writer.close();
+  }catch (error) {
+    throw error; // 重新抛出错误，让全局捕获器捕获
+  }
 }
 
 async function handleModels(request) {
