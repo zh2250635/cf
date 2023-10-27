@@ -1,9 +1,11 @@
 // The name of your Azure OpenAI Resource.
 // const resourceName=RESOURCE_NAME
-const openaiBaseUrl = OPENAI_BASE_URL || 'https://api.openai.com';
-const openaiKey = OPENAI_KEY || '';
-const shouldUseOpenAI = Boolean(SHOULD_USE_OPENAI) || false;
-const shouldMakeLine = Boolean(SHOULD_MAKE_LINE) || false;
+const openaiBaseUrl = OPENAI_BASE_URL 
+const openaiKey = OPENAI_KEY 
+const shouldUseOpenAI = Boolean(parseInt(SHOULD_USE_OPENAI, 10));
+const shouldMakeLine = Boolean(parseInt(SHOULD_MAKE_LINE, 10));
+
+console.log("should make line ? ", SHOULD_USE_OPENAI, shouldMakeLine, "should use op ? ",SHOULD_MAKE_LINE, shouldUseOpenAI)
 
 // The deployment name you chose when you deployed the model.
 const mapper = {
@@ -68,7 +70,10 @@ async function handleRequest(request) {
           status: 403
       });
     }
+
+    //gateway: https://gateway.ai.cloudflare.com/v1/96188266054b9973baec8a9b5212141c/test/azure-openai/az-beta-2-s1-canada-east/gpt-4-32k/chat/completions?api-version=2023-07-01-previewa
     const fetchAPI = `https://${resourceName}.openai.azure.com/openai/deployments/${deployName}/${path}?api-version=${apiVersion}`
+    // const fetchAPI = `https://gateway.ai.cloudflare.com/v1/96188266054b9973baec8a9b5212141c/test/azure-openai/${resourceName}/${deployName}/${path}?api-version=${apiVersion}`
 
     const authKey = request.headers.get('Authorization');
     if (!authKey) {
@@ -88,27 +93,58 @@ async function handleRequest(request) {
 
       let response = await fetch(fetchAPI, payload);
 
-      if(shouldUseOpenAI) {
-        if (response.status === 400 ) {
-          let data = await response.json();
-          if (data?.error?.code === 'content_filter') {
-            console.log('content_filter catched');
-            let opAPI = openaiBaseUrl + '/v1/' + path;
-            payload.headers['Authorization'] = `Bearer ${openaiKey}`;
-            response = await fetch(opAPI, payload);
-            response = new Response(response.body, response);
-            response.headers.set("Access-Control-Allow-Origin", "*");
-        
-            if (body?.stream != true){
-              return response
-            } 
-        
-            let { readable, writable } = new TransformStream()
-            stream(response.body, writable, body?.model);
-            return new Response(readable, response);
+      const fetchFromOpenAI = async (payload, path) => {
+        const url = `${openaiBaseUrl}/v1/${path}`;
+        payload.headers['Authorization'] = `Bearer ${openaiKey}`;
+        return await fetch(url, payload);
+      };
+      if (shouldUseOpenAI) {
+        try {
+          if (response.status === 400) {
+            let data = await response.json();
+            switch (data?.error?.code) {
+              case 'content_filter':
+                console.log('content_filter catched 😅');
+                response = await fetchFromOpenAI(payload, path);
+                break;
+              case 'context_length_exceeded':
+                console.log('max_length, message: ', data?.error?.message);
+                const errorMsg = {
+                  "error": {
+                    "message": data?.error?.message || "Context length exceeded",
+                    "type": "invalid_request_error",
+                    "param": "messages",
+                    "code": "context_length_exceeded"
+                  }
+                };
+                return new Response(JSON.stringify(errorMsg), {
+                  status: 400,
+                  headers: {
+                    'Content-Type': 'application/json'
+                  }
+                });
+                break;
+              default:
+                console.log('Unhandled error code in 400 😓');
+            }
+          } else if (response.status === 429) {
+            console.log(`${resourceName}, meet rate limit, switching to OpenAI 😓`);
+            response = await fetchFromOpenAI(payload, path);
+          } else if (response.status === 307) {
+            try {
+              let json = await response.json();
+              console.log("We got a 307, what's up? 🤔", json);
+            } catch (e) {
+              console.log("Got a 307, but no JSON in the response 😱");
+            } finally {
+              response = await fetchFromOpenAI(payload, path);
+            }
           }
+        } catch (error) {
+          console.log("An unexpected error occurred 😵", error);
         }
       }
+      
       response = new Response(response.body, response);
       response.headers.set("Access-Control-Allow-Origin", "*");
 
