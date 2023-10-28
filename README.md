@@ -13,12 +13,12 @@
 
 你需要设置以下环境变量：
 
-\`\`\`shell
+```shell
 ENV OPENAI_BASE_URL=https://api.openai.com/v1
 ENV OPENAI_KEY=sk-xxx
 ENV SHOULD_USE_OPENAI=1
 ENV SHOULD_MAKE_LINE=1
-\`\`\`
+```
 
 - `OPENAI_BASE_URL`: OpenAI API 的基础 URL
 - `OPENAI_KEY`: 你的 OpenAI API 密钥
@@ -34,27 +34,27 @@ ENV SHOULD_MAKE_LINE=1
 3. 复制 `server.js` 的代码到 Worker 中。
 4. 在 Worker 设置里添加环境变量。
 
-\`\`\`shell
+```shell
 # 填写环境变量
 cf worker env set OPENAI_BASE_URL https://api.openai.com/v1
 cf worker env set OPENAI_KEY your_key_here
 cf worker env set SHOULD_USE_OPENAI 1
 cf worker env set SHOULD_MAKE_LINE 1
-\`\`\`
+```
 
 ### 使用 Docker 部署 🐳
 
 1. 从 Docker Hub 获取镜像。
 
-\`\`\`shell
+```shell
 docker pull xhtnext/mycf:latest
-\`\`\`
+```
 
 2. 配置环境变量并运行容器。
 
-\`\`\`shell
+```shell
 docker run -e OPENAI_BASE_URL=https://api.openai.com/v1 -e OPENAI_KEY=your_key_here -e SHOULD_USE_OPENAI=1 -e SHOULD_MAKE_LINE=1 xhtnext/mycf:latest
-\`\`\`
+```
 
 这样，你的代理就部署好了！🎉
 
