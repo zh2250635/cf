@@ -1,7 +1,9 @@
 // The name of your Azure OpenAI Resource.
 // const resourceName=RESOURCE_NAME
-const openaiBaseUrl = OPENAI_BASE_URL 
-const openaiKey = OPENAI_KEY 
+const openaiGpt4 = OPENAI_GPT4
+const openaiKey4 = OPENAI_KEY4
+const openaiGpt35Turbo = OPENAI_GPT35_TURBO
+const openaiKey35Turbo = OPENAI_KEY35_TURBO
 const shouldUseOpenAI = Boolean(parseInt(SHOULD_USE_OPENAI, 10));
 const shouldMakeLine = Boolean(parseInt(SHOULD_MAKE_LINE, 10));
 
@@ -9,11 +11,18 @@ console.log("should make line ? ", SHOULD_USE_OPENAI, shouldMakeLine, "should us
 
 // The deployment name you chose when you deployed the model.
 const mapper = {
-    'gpt-3.5-turbo': "gpt-35-turbo",
-    'gpt-3.5-turbo-16k': "gpt-35-turbo-16k",
-    'gpt-4': "gpt-4",
-    'gpt-4-32k': "gpt-4-32k",
-    "text-embedding-ada-002": "text-embedding-ada-002",
+  "gpt-3.5-turbo":"gpt-35-turbo",
+  "gpt-3.5-turbo-0613": "gpt-35-turbo",
+  "gpt-3.5-turbo-0301": "gpt-35-turbo",
+  "gpt-3.5-turbo-16k":"gpt-35-turbo-16k",
+  "gpt-3.5-turbo-16k-0613": "gpt-35-turbo-16k",
+  "gpt-4":"gpt-4",
+  "gpt-4-0613": "gpt-4",
+  "gpt-4-0314": "gpt-4",
+  "gpt-4-32k":"gpt-4-32k",
+  "gpt-4-32k-0613": "gpt-4-32k",
+  "gpt-4-32k-0314": "gpt-4-32k",
+  "text-embedding-ada-002": "text-embedding-ada-002"
 };
 
 const apiVersion="2023-07-01-preview"
@@ -53,6 +62,8 @@ async function handleRequest(request) {
       case '/v1/engines/text-embedding-ada-002/embeddings':
         path = "embeddings";
         break;
+      case '/v1/whisper/transcribe':
+        return handleWhisperTranscribe(request);
       default:
         return new Response('404 Not Found', { status: 404 });
     }
@@ -94,6 +105,16 @@ async function handleRequest(request) {
       let response = await fetch(fetchAPI, payload);
 
       const fetchFromOpenAI = async (payload, path) => {
+        if (modelName.startsWith('gpt-3.5')) {
+          const openaiBaseUrl = openaiGpt35Turbo
+          const openaiKey = openaiKey35Turbo
+        }else if (modelName.startsWith('gpt-4')) {
+          const openaiBaseUrl = openaiGpt4
+          const openaiKey = openaiKey4
+        }else{
+          const openaiBaseUrl = openaiGpt35Turbo
+          const openaiKey = openaiKey35Turbo
+        }
         const url = `${openaiBaseUrl}/v1/${path}`;
         payload.headers['Authorization'] = `Bearer ${openaiKey}`;
         return await fetch(url, payload);
@@ -139,6 +160,8 @@ async function handleRequest(request) {
             } finally {
               response = await fetchFromOpenAI(payload, path);
             }
+          }else if(response.status !== 200){
+            console.log("response status: ", response.status)
           }
         } catch (error) {
           console.log("An unexpected error occurred 😵", error);
@@ -315,3 +338,44 @@ async function handleOPTIONS(request) {
     })
 }
 
+async function handleWhisperTranscribe(request) {
+  try {
+    const fetchAPI = `https://${resourceName}.openai.azure.com/openai/deployments/whisper/audio/transcriptions?api-version=${apiVersion}`;
+    const authKey = request.headers.get('Authorization');
+
+    if (!authKey || !authKey.startsWith('Bearer ')) {
+      return new Response("未授权或授权格式错误", {
+        status: 403
+      });
+    }
+
+    // 创建一个新的Headers对象，并复制所有原始请求的头
+    const headers = new Headers(request.headers);
+    headers.set("api-key", authKey.replace('Bearer ', ''));
+    headers.delete('Authorization');  // 删除Authorization头
+
+    const payload = {
+      method: request.method,
+      headers: headers,
+      body: request.body  // 直接转发流
+    };
+
+    const response = await fetch(fetchAPI, payload);
+
+    if (!response.ok) {
+      return new Response(`API调用失败: ${response.statusText}`, {
+        status: response.status
+      });
+    }
+
+    return new Response(response.body, {
+      status: response.status,
+      headers: response.headers  // 复制原始响应的headers
+    });
+
+  } catch (error) {
+    return new Response(`发生错误: ${error.toString()}`, {
+      status: 500
+    });
+  }
+}
