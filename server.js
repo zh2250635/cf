@@ -105,19 +105,25 @@ async function handleRequest(request) {
       let response = await fetch(fetchAPI, payload);
 
       const fetchFromOpenAI = async (payload, path) => {
-        if (modelName.startsWith('gpt-3.5')) {
-          const openaiBaseUrl = openaiGpt35Turbo
-          const openaiKey = openaiKey35Turbo
-        }else if (modelName.startsWith('gpt-4')) {
-          const openaiBaseUrl = openaiGpt4
-          const openaiKey = openaiKey4
-        }else{
-          const openaiBaseUrl = openaiGpt35Turbo
-          const openaiKey = openaiKey35Turbo
+        let openaiBaseUrl = openaiGpt35Turbo; // 默认使用 GPT-3.5 的 baseURL
+        let openaiKey = openaiKey35Turbo;     // 默认使用 GPT-3.5 的 API key
+      
+        if (modelName.startsWith('gpt-4')) {
+          openaiBaseUrl = openaiGpt4;
+          openaiKey = openaiKey4;
         }
+      
         const url = `${openaiBaseUrl}/v1/${path}`;
+      
+        payload.headers = payload.headers || {};
         payload.headers['Authorization'] = `Bearer ${openaiKey}`;
-        return await fetch(url, payload);
+      
+        try {
+          return await fetch(url, payload);
+        } catch (error) {
+          console.error('Fetch to OpenAI failed:', error);
+          // Handle error appropriately
+        }
       };
       if (shouldUseOpenAI) {
         try {
