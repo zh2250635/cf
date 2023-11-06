@@ -175,7 +175,7 @@ async function handleRequest(request) {
           }else if(response.status !== 200){
             console.log("response status: ", response.status)
             handelWebHook(`got a ${response.status} in ${resourceName}, please check!`)
-            response = await fetchFromOpenAI(payload, path);
+            // response = await fetchFromOpenAI(payload, path);
           }
         } catch (error) {
           console.log("An unexpected error occurred 😵", error);
