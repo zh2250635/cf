@@ -181,7 +181,7 @@ async function handleRequest(request) {
       }
 
       if(response.status !== 200){
-        console.log("response status: ", response.status)
+        console.log(`\ngot a ${response.status} in ${resourceName}, even openai failed, client will recieve ${response.status}\n`)
         handelWebHook(`got a ${response.status} in ${resourceName}, even openai failed, client will recieve ${response.status}`)
       }
       
