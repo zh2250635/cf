@@ -181,10 +181,10 @@ async function handleRequest(request) {
         }
       }
 
-      if(response.status !== 200){
-        console.log(`\ngot a ${response.status} in ${resourceName}, even openai failed, client will recieve ${response.status}\n`)
-        handelWebHook(`got a ${response.status} in ${resourceName}, even openai failed, client will recieve ${response.status}`)
-      }
+      // if(response.status !== 200){
+      //   console.log(`\ngot a ${response.status} in ${resourceName}, even openai failed, client will recieve ${response.status}\n`)
+      //   handelWebHook(`got a ${response.status} in ${resourceName}, even openai failed, client will recieve ${response.status}`)
+      // }
       
       response = new Response(response.body, response);
       response.headers.set("Access-Control-Allow-Origin", "*");
