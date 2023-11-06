@@ -132,7 +132,7 @@ async function handleRequest(request) {
             let data = await response.json();
             switch (data?.error?.code) {
               case 'content_filter':
-                console.log('content_filter catched 😅');
+                console.log(`content_filter catched 😅, in ${resourceName}, go to openai`);
                 response = await fetchFromOpenAI(payload, path);
                 break;
               case 'context_length_exceeded':
@@ -153,7 +153,8 @@ async function handleRequest(request) {
                 });
                 break;
               default:
-                console.log('Unhandled error code in 400 😓');
+                console.log('Unhandled error code in 400 😓, going to OpenAI');
+                response = await fetchFromOpenAI(payload, path);
             }
           } else if (response.status === 429) {
             console.log(`${resourceName}, meet rate limit, switching to OpenAI 😓`);
@@ -177,6 +178,11 @@ async function handleRequest(request) {
         } catch (error) {
           console.log("An unexpected error occurred 😵", error);
         }
+      }
+
+      if(response.status !== 200){
+        console.log("response status: ", response.status)
+        handelWebHook(`got a ${response.status} in ${resourceName}, even openai failed, client will recieve ${response.status}`)
       }
       
       response = new Response(response.body, response);
