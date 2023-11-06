@@ -1,4 +1,7 @@
 // The name of your Azure OpenAI Resource.
+
+const res = require("express/lib/response");
+
 // const resourceName=RESOURCE_NAME
 const openaiGpt4 = OPENAI_GPT4
 const openaiKey4 = OPENAI_KEY4
@@ -172,6 +175,7 @@ async function handleRequest(request) {
           }else if(response.status !== 200){
             console.log("response status: ", response.status)
             handelWebHook(`got a ${response.status} in ${resourceName}, please check!`)
+            response = await fetchFromOpenAI(payload, path);
           }
         } catch (error) {
           console.log("An unexpected error occurred 😵", error);
