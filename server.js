@@ -106,6 +106,7 @@ async function handleRequest(request) {
       let response = await fetch(fetchAPI, payload);
 
       const fetchFromOpenAI = async (payload, path) => {
+        console.log(`\nfetching from openai in ${resourceName}\n`)
         let openaiBaseUrl = openaiGpt35Turbo; // 默认使用 GPT-3.5 的 baseURL
         let openaiKey = openaiKey35Turbo;     // 默认使用 GPT-3.5 的 API key
       
