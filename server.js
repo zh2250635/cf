@@ -6,6 +6,7 @@ const openaiGpt35Turbo = OPENAI_GPT35_TURBO
 const openaiKey35Turbo = OPENAI_KEY35_TURBO
 const shouldUseOpenAI = Boolean(parseInt(SHOULD_USE_OPENAI, 10));
 const shouldMakeLine = Boolean(parseInt(SHOULD_MAKE_LINE, 10));
+const webhookKey = WEBHOOK_KEY
 
 console.log("should make line ? ", SHOULD_USE_OPENAI, shouldMakeLine, "should use op ? ",SHOULD_MAKE_LINE, shouldUseOpenAI)
 
@@ -156,11 +157,13 @@ async function handleRequest(request) {
             }
           } else if (response.status === 429) {
             console.log(`${resourceName}, meet rate limit, switching to OpenAI 😓`);
+            handelWebHook(`${resourceName}, meet rate limit, switching to OpenAI 😓`)
             response = await fetchFromOpenAI(payload, path);
           } else if (response.status === 307) {
             try {
               let json = await response.json();
-              console.log("We got a 307, what's up? 🤔", json);
+              console.log(`We got a 307 in ${resourceName}, what's up? 🤔`, json);
+              handelWebHook(`We got a 307, what's up? 🤔 ${json}`)
             } catch (e) {
               console.log("Got a 307, but no JSON in the response 😱");
             } finally {
@@ -168,6 +171,7 @@ async function handleRequest(request) {
             }
           }else if(response.status !== 200){
             console.log("response status: ", response.status)
+            handelWebHook(`got a ${response.status} in ${resourceName}, please check!`)
           }
         } catch (error) {
           console.log("An unexpected error occurred 😵", error);
@@ -383,5 +387,28 @@ async function handleWhisperTranscribe(request) {
     return new Response(`发生错误: ${error.toString()}`, {
       status: 500
     });
+  }
+}
+
+async function handelWebHook(text){
+  const fetchAPI = `https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=${webhookKey}`;
+  const payload = {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      "msgtype": "text",
+      "text": {
+        "content": text
+      }
+    })
+  };
+  try{
+    const response = await fetch(fetchAPI, payload);
+    return response
+  }catch(error){
+    console.log("send webhook error: ", error)
+    return null
   }
 }
