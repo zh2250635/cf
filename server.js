@@ -7,8 +7,9 @@ const openaiKey35Turbo = OPENAI_KEY35_TURBO
 const shouldUseOpenAI = Boolean(parseInt(SHOULD_USE_OPENAI, 10));
 const shouldMakeLine = Boolean(parseInt(SHOULD_MAKE_LINE, 10));
 const webhookKey = WEBHOOK_KEY
+const shouldReportError = Boolean(parseInt(SHOULD_REPORT_ERROR, 10));
 
-console.log("should make line ? ", SHOULD_USE_OPENAI, shouldMakeLine, "should use op ? ",SHOULD_MAKE_LINE, shouldUseOpenAI)
+console.log("should make line ? ", SHOULD_USE_OPENAI, shouldMakeLine, "should use op ? ",SHOULD_MAKE_LINE, shouldUseOpenAI, "should report error ? ", SHOULD_REPORT_ERROR, shouldReportError)
 
 // The deployment name you chose when you deployed the model.
 const mapper = {
@@ -182,8 +183,10 @@ async function handleRequest(request) {
       }
 
       if(response.status !== 200){
-        console.log(`\ngot a ${response.status} in ${resourceName}, even openai failed, client will recieve ${response.status}\n`)
-        handelWebHook(`got a ${response.status} in ${resourceName}, even openai failed, client will recieve ${response.status}`)
+        console.log(`\ngot a ${response.status} in ${resourceName}, client will recieve ${response.status}\n`)
+        if(shouldReportError){
+          handelWebHook(`got a ${response.status} in ${resourceName}, even openai failed, client will recieve ${response.status}`)
+        }
       }
       
       response = new Response(response.body, response);
@@ -206,32 +209,41 @@ function sleep(ms) {
 }
 
 function make_line(line) {
+  // 如果输入行是特定的完成标记，返回带有额外换行的完成标记
   if (line === 'data: [DONE]') {
       return 'data: [DONE]\n\n';
+  // 如果输入行以'data: '开头，尝试解析JSON数据
   } else if (line.startsWith('data: ')) {
+      // 获取JSON数据部分
       const jsonPart = line.slice(6);
       let jsonData;
       try {
+          // 尝试解析JSON
           jsonData = JSON.parse(jsonPart);
       } catch (error) {
+          // 如果解析出错，打印错误信息并返回null
           console.error('Error parsing JSON:', error);
           return null;
       }
 
-      // 确保jsonData["choices"]存在
+      // 确保jsonData["choices"]存在且是非空数组
       if (!jsonData["choices"] || !Array.isArray(jsonData["choices"]) || jsonData["choices"].length === 0) {
           return null;
       }
 
       try {
+          // 获取choices数组的第一个元素
           const returnChoices = jsonData["choices"];
           if (returnChoices && returnChoices[0]) {
+              // 删除可能存在的敏感内容过滤结果
               delete returnChoices[0]["content_filter_results"];
+              // 如果需要，可以取消注释下面代码来清除'delta'中的'role'键
               // if ('role' in returnChoices[0]['delta']) {
               //     returnChoices[0]['delta']['content'] = '';
               // }
           }
 
+          // 重建JSON对象用于返回
           const returnJson = JSON.stringify({
               "id": jsonData["id"],
               "object": jsonData["object"],
@@ -239,12 +251,15 @@ function make_line(line) {
               "model": jsonData["model"] ? jsonData["model"] : "gpt-4",
               "choices": jsonData["choices"]
           });
+          // 返回新的JSON字符串
           return 'data: ' + returnJson + '\n\n';
       } catch (error) {
+          // 如果处理数据时出错，打印错误信息并返回null
           console.error('Error processing data:', error);
           return null;
       }
   }
+  // 如果输入行不符合以上任何一种格式，返回null
   return null;
 }
 
