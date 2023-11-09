@@ -1,5 +1,6 @@
 // The name of your Azure OpenAI Resource.
 // const resourceName=RESOURCE_NAME
+const apiVersion = API_VERSION
 const openaiGpt4 = OPENAI_GPT4
 const openaiKey4 = OPENAI_KEY4
 const openaiGpt35Turbo = OPENAI_GPT35_TURBO
@@ -26,8 +27,6 @@ const mapper = {
   "gpt-4-32k-0314": "gpt-4-32k",
   "text-embedding-ada-002": "text-embedding-ada-002"
 };
-
-const apiVersion="2023-07-01-preview"
 
 addEventListener("fetch", (event) => {
   event.respondWith(
